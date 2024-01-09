@@ -1,0 +1,12 @@
+---
+flag: w3ll_d0ne!
+flag_location: /root/.flag
+
+postgres_user: postgres
+postgres_password: postgres
+
+posix_account: user
+posix_account_password: passw0rd1!
+posix_account_password_salt: ey1h5niw5kvebwvo
+
+cockpit_subdir: cockpit_ui

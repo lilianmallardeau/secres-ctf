@@ -1,0 +1,30 @@
+---
+- name: Install vsftpd
+  apt:
+    name: vsftpd
+    state: present
+
+- name: Setup vsftpd config
+  blockinfile:
+    path: /etc/vsftpd.conf
+    append_newline: true
+    prepend_newline: true
+    block: |
+      anonymous_enable=YES
+      no_anon_password=YES
+      anon_root=/srv/ftp/
+  register: update_vsftpd_config
+
+- name: Restart vsftpd
+  service:
+    name: vsftpd
+    state: restarted
+  when: update_vsftpd_config.changed
+
+- name: Copy notes.txt to /srv/ftp/notes.txt
+  copy:
+    src: notes.txt
+    dest: /srv/ftp/notes.txt
+    owner: root
+    group: root
+    mode: 0644

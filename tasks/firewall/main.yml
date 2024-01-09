@@ -1,0 +1,15 @@
+---
+- name: Install ufw
+  apt:
+    name: ufw
+    state: present
+
+- name: Enable ufw and set default policy
+  ufw:
+    state: enabled
+    policy: allow
+
+- name: Block port 9090 to disable direct access to Cockpit
+  ufw:
+    rule: deny
+    port: 9090

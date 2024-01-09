@@ -1,0 +1,60 @@
+---
+- name: Install PostgreSQL server
+  apt:
+    name:
+      - postgresql
+      - python3-psycopg2
+    state: present
+
+- name: Set password for postgres user '{{ postgres_user }}'
+  become: true
+  become_user: postgres
+  postgresql_user:
+    name: "{{ postgres_user }}"
+    password: "{{ postgres_password }}"
+    state: present
+
+- name: Create 'users' database
+  become: true
+  become_user: postgres
+  postgresql_db:
+    name: users
+    owner: "{{ postgres_user }}"
+    state: present
+
+- name: Create table 'users' and insert username and password hash
+  become: true
+  become_user: postgres
+  command:
+    cmd: psql -d users
+    stdin: |
+      CREATE TABLE IF NOT EXISTS users(username varchar(255) primary key, passhash varchar(32));
+      INSERT INTO users VALUES ('{{ posix_account }}', '{{ posix_account_password | hash('md5') }}');
+  register: db_insert_data
+  changed_when: "'INSERT' in db_insert_data.stdout"
+
+- name: Make postgres listen for connections on all interfaces
+  copy:
+    content: listen_addresses = '*'
+    dest: /etc/postgresql/15/main/conf.d/listen-addresses.conf
+    owner: postgres
+    group: postgres
+    mode: 0644
+  register: postgres_set_listen_addresses
+
+- name: Allow connections from any hosts in pg_hba.conf
+  lineinfile:
+    path: /etc/postgresql/15/main/pg_hba.conf
+    line: "{{ item }}"
+  loop:
+    - "host all all 0.0.0.0/0 scram-sha-256"
+    - "host all all ::/0 scram-sha-256"
+  register: postgres_set_hba_config
+
+- name: Restart postgresql
+  service:
+    name: postgresql
+    state: restarted
+  when: >
+    postgres_set_listen_addresses.changed or
+    postgres_set_hba_config.changed

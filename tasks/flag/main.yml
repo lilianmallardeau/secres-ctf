@@ -1,0 +1,8 @@
+---
+- name: Copy flag to {{ flag_location }}
+  copy:
+    content: "{{ flag }}"
+    dest: "{{ flag_location }}"
+    owner: root
+    group: root
+    mode: 0400

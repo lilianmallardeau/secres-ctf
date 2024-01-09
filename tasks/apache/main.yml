@@ -1,0 +1,62 @@
+---
+- name: Install Apache
+  apt:
+    name: apache2
+    state: present
+
+- name: Enable apache modules for reverse proxy
+  apache2_module:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - proxy
+    - proxy_http
+    - proxy_wstunnel
+    - ssl
+    - rewrite
+    - headers
+  register: enable_apache_modules
+
+- name: Restart apache
+  service:
+    name: apache2
+    state: restarted
+  when: enable_apache_modules.changed
+
+- name: Disable default virtualhost
+  command:
+    cmd: a2dissite 000-default
+    removes: /etc/apache2/sites-enabled/000-default.conf
+  register: apache_disable_default_vhost
+
+- name: Copy vhost file for cockpit reverse proxy
+  template:
+    src: cockpit.conf
+    dest: /etc/apache2/sites-available/cockpit.conf
+    owner: root
+    group: root
+    mode: 0644
+  register: apache_cockpit_vhost_config
+
+- name: Enable cockpit config file
+  command:
+    cmd: a2ensite cockpit
+    creates: /etc/apache2/sites-enabled/cockpit.conf
+  register: apache_enable_cockpit_vhost
+
+- name: Reload apache
+  service:
+    name: apache2
+    state: reloaded
+  when: >
+    apache_disable_default_vhost.changed or
+    apache_cockpit_vhost_config.changed or
+    apache_enable_cockpit_vhost.changed
+
+- name: Copy robots.txt to /var/www/html
+  template:
+    src: robots.txt
+    dest: /var/www/html/robots.txt
+    owner: www-data
+    group: www-data
+    mode: 0644

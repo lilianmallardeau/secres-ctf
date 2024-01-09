@@ -1,0 +1,48 @@
+---
+- name: SECRES-CTF configuration
+  hosts: all
+  become: true
+
+  vars_files:
+    - vars/main.yml
+
+  pre_tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install acl
+      apt: name=acl state=present
+
+  roles:
+    - docker
+
+  tasks:
+    - { import_tasks: tasks/ftp/main.yml, tags: ftp }
+    - { import_tasks: tasks/postgres/main.yml, tags: postgres }
+    - { import_tasks: tasks/cockpit/main.yml, tags: cockpit }
+    - { import_tasks: tasks/apache/main.yml, tags: apache }
+    - { import_tasks: tasks/firewall/main.yml, tags: firewall }
+    - { import_tasks: tasks/flag/main.yml, tags: flag }
+
+    - name: Add user '{{ posix_account }}'
+      user:
+        name: "{{ posix_account }}"
+        password: "{{ posix_account_password | password_hash('sha512', salt=posix_account_password_salt) }}"
+        # update_password: on_create
+        shell: /bin/bash
+        groups: docker
+        append: yes
+
+    - name: Disable sshd
+      service:
+        name: ssh
+        enabled: no
+
+    - name: Lock password for user vagrant
+      user:
+        name: vagrant
+        password_lock: yes
+        # state: absent
+        # remove: yes

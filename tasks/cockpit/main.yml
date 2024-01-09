@@ -1,0 +1,20 @@
+---
+- name: Install Cockpit
+  apt:
+    name: cockpit
+    state: present
+
+- name: Copy Cockpit config file to /etc/cockpit/cockpit.conf
+  template:
+    src: cockpit.conf
+    dest: /etc/cockpit/cockpit.conf
+    owner: root
+    group: root
+    mode: 0644
+  register: copy_cockpit_config_file
+
+- name: Restart Cockpit
+  service:
+    name: cockpit
+    state: restarted
+  when: copy_cockpit_config_file.changed
