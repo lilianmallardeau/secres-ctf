@@ -76,7 +76,9 @@ Except this short note, it seems there's nothing else interesting in the FTP ser
 ## PostgreSQL
 The nmap scan showed us that port 5432 was open, we should find a PostgreSQL server here. We now connect to this port and try to authentify ourselves with some commonly used combinations of login and password.
 
--> postgres/postgres fonctionne
+```
+shell postgres login
+```
 
 After successfully logging in, we can find the postgres databases : template0 and template1. These two are here by default and mandatory to postgre's functions, so not very interisting, what is interesting though, is a database titled "users", bingo !
 When looking inside, we can find the user table composed of two rows, user and password we can see that the passwords row is hashed.
@@ -87,17 +89,20 @@ By copying the desired hash and putting in into some website like "hashanalyzer"
 
 It worked ! We now know that the password of our user is simply "passw0rd1!", only 10 characters long, not very effective with a poor hashing system...
 
+```
+logs connexion a la db
 (utiliser psql --host=<VM_address>)
 (\l pour lister les db)
 (\c pour se connecter à une db)
 (\d pour lister les tables)
+```
 
 ## Webserver
 
 We now have access to the webserver, but where do we go from here ? We can search for some clues in the robots.txt, for this we simply add /robots.txt to the end of the URL, these pages are used by search engines to indicate what URL of a website they are allowed to access when responding to queries. Most often they are used to disallow access to certain pages like if you had a page that you didn't want to be public.
 
 ```
-content of robots.txt
+Disallow: /cockpit_ui
 ```
 
 Interesting, /cockpit_ui is disallowed maybe we should try to explore that lead.
