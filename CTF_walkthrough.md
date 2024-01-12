@@ -73,66 +73,73 @@ ftp>
 Ok, so it looks like a note for the sysadmins.
 Except this short note, it seems there's nothing else interesting in the FTP server. But the note states that the PostgreSQL password should be changed, so it's probably worth a try to try default and simple credentials.
 
+
 ## PostgreSQL
-The nmap scan showed us that port 5432 was open, we should find a PostgreSQL server here. We now connect to this port and try to authentify ourselves with some commonly used combinations of login and password.
+The nmap scan showed us that port 5432 was open, so we should find a PostgreSQL server here if default ports are used. We now connect to this port using `psql` and try to authenticate with some commonly used combinations of login and password (the default credentials for PostgreSQL used to be postgres/postgres, so we try that first):
 
 ```
-shell postgres login
+psql -h <VM_address> -U postgres
 ```
 
-After successfully logging in, we can find the postgres databases : template0 and template1. These two are here by default and mandatory to postgre's functions, so not very interisting, what is interesting though, is a database titled "users", bingo !
-When looking inside, we can find the user table composed of two rows, user and password we can see that the passwords row is hashed.
+And... it turns out it worked!
 
-By copying the desired hash and putting in into some website like "hashanalyzer", we can learn that the hash used is md5 one solution to retrieve the password would be to bruteforce it, a short password hashed with md5 can be broken in just a few minutes after all...
+After successfully logging in, we can find the postgres databases 'postgres', 'template0' and 'template1'. These are here by default and mandatory to postgre's functions, so not very interesting, what is interesting though, is a database titled "users", bingo!
+When looking inside, we can find an "users" table composed of two columns: `username` and `passhash`. We can see that the passwords are hashed. Hashes are 32-character hexadecimal strings, so it's probably MD5.
+
+By copying the desired hash and putting in into some website like "hashanalyzer", we can learn that the hash used is actually MD5. One solution to retrieve the password would be to bruteforce it (using hashcat for example), a short password hashed with MD5 can be broken in just a few minutes after all...
 
 ...
 
-It worked ! We now know that the password of our user is simply "passw0rd1!", only 10 characters long, not very effective with a poor hashing system...
+It worked! We now know that the password of our user is simply "passw0rd1!", only 10 characters long, not very effective with a poor hashing system...
 
-```
-logs connexion a la db
-(utiliser psql --host=<VM_address>)
-(\l pour lister les db)
-(\c pour se connecter à une db)
-(\d pour lister les tables)
-```
 
 ## Webserver
 
-We now have access to the webserver, but where do we go from here ? We can search for some clues in the robots.txt, for this we simply add /robots.txt to the end of the URL, these pages are used by search engines to indicate what URL of a website they are allowed to access when responding to queries. Most often they are used to disallow access to certain pages like if you had a page that you didn't want to be public.
+Let's get back to the webserver, we haven't explored down that road yet.
+Ok, where do we start? At first sight, there's only a default apache page. We can search for some clues in the robots.txt file; for this we simply add `/robots.txt` to the end of the URL. This file is used to indicate to search engines which URLs of a website they are allowed (or disallowed) to access when indexing websites. Most often they are used to disallow access to certain pages, if you have a page that you don't want to be public for example.
 
+Here, the robots.txt file contains:
 ```
-Disallow: /cockpit_ui
+User-agent: *
+Disallow: /{{ cockpit_subdir }}
 ```
 
-Interesting, /cockpit_ui is disallowed maybe we should try to explore that lead.
+Interesting, `/cockpit_ui` is disallowed, so maybe we should explore that lead. Cockpit is a remote administration tool that provides a web interface with useful tools to manage a server (networking, storage, logs...)
+
 
 ## Cockpit
 
-We're now on the /cockpit_ui page, we can now login using the username and password we previously found (passw0rd1!)
+When accessing `/cockpit_ui`, we get a 404 error. Hum. Maybe we were put on a wrong track on purpose by the robots.txt file.
+However, when we try with an added leading slash (`/cockpit_ui/`), we land on a Cockpit authentication page! Cockpit is protected by user/password authentication, and by default it uses UNIX logins.
+We can try to login using the username and password we previously found ("user"/"passw0rd1!").
 
 ...
 
-Login is successful ! And now we have a access to terminal, there are many things that can be done from here but first let's check what privileges we have.
+Login is successful! And now thanks to Cockpit we have access to a terminal via the web ui! There are many things that can be done from here but first let's check what privileges we have.
 
 ```
-privileges command + results
+user@bookworm:~$ sudo -l
+[sudo] password for user: 
+Sorry, user user may not run sudo on bookworm.
+user@bookworm:~$ groups
+user docker
 ```
 
-Ok we are not root but we can see that we have access to docker which is very powerful, we are very close to finding that flag.
+Ok, we neither are root nor in the sudo group, but we can see that we are in the docker group, which means we have full access to Docker, which is very powerful. We are very close to finding that flag (or at least having root access), since being in the docker group will allow us to elevate our privileges.
+
 
 ## Privilege escalation with Docker
 
 Due to us being in the docker group we can run containers, a container is an isolated space where we can run applications in a controlled environment, similar to a virtual machine in some ways but more lightweight.
 
-By creating a docker container we automatically become the root user of said container we will be using this to our advantage with the simple command
+By creating a docker container we by default become the root user inside said container; and we will be using this to our advantage. We can create a docker container, and map the root filesystem (/) of the host to the /data directory inside the container:
 ```
 docker run -it -v /:/data debian
 ```
-To explain this command, we are building a docker container called debian which will be build with the image of the data folder. 
-The option -it gives us an interactive command prompt to execute commands inside of the container.
+To explain this command, we are starting a docker container from the debian image, and using the `-v` (`--volume`) option to mount / from the host to /data in the container.
+The -it options give us an interactive command prompt to execute commands inside of the container.
 
-We gained root privileges we now have access to everything, we could search for the flag manually or use some command such as :
+We are root inside the container, and since we have the host root on /data, we now have access to everything. We can search for the flag manually or use some command such as find:
 ```
 find /data -iname "*flag*"
 ```
@@ -142,5 +149,4 @@ The flag is located at
 /data/root/.flag
 ```
 
-Congratulations !
-
+Congratulations!
