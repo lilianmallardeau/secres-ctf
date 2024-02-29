@@ -101,7 +101,7 @@ Ok, where do we start? At first sight, there's only a default apache page. We ca
 Here, the robots.txt file contains:
 ```
 User-agent: *
-Disallow: /{{ cockpit_subdir }}
+Disallow: /cockpit_ui
 ```
 
 Interesting, `/cockpit_ui` is disallowed, so maybe we should explore that lead. Cockpit is a remote administration tool that provides a web interface with useful tools to manage a server (networking, storage, logs...)
